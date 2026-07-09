@@ -7,5 +7,6 @@
   - [x] GET `/title/:title`
 - [ ] Keep existing response formats and status codes. (verify manually)
 - [ ] Test endpoints by running the server and calling the routes.
+- [x] Add documentation (JSDoc/comments) to improve maintainability and clarity. (documentation-only)
 
 

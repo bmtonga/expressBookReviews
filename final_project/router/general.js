@@ -1,23 +1,40 @@
+/**
+ * Public router.
+ *
+ * Includes:
+ * - Register endpoint for creating in-memory users.
+ * - Book discovery endpoints which forward to internal routes using axios + async/await.
+ * - Book review listing endpoint (reads directly from booksdb.js in-memory store).
+ */
 const express = require('express');
 const axios = require('axios');
 let books = require("./booksdb.js");
 
-let isValid = require("./auth_users.js").isValid;
+// Shared in-memory auth store (exported from auth_users.js)
 let users = require("./auth_users.js").users;
 
 const public_users = express.Router();
+
+// Local base URL used when forwarding requests to other routes.
 const BASE_URL = 'http://localhost:6000';
 
-// Helper: use axios against our own already-implemented endpoints.
-// NOTE: these endpoints are mounted on the same Express app and run in-memory.
+/**
+ * Forward a GET request to an internal endpoint.
+ *
+ * @param {string} path - Endpoint path (e.g., '/customer/isbn/1')
+ * @returns {Promise<any>} - JSON response payload
+ */
 async function fetchViaAxios(path) {
   const axiosRes = await axios.get(`${BASE_URL}${path}`);
   return axiosRes.data;
 }
 
-
-
-
+/**
+ * Register a new in-memory user.
+ *
+ * Request body:
+ *   { "username": string, "password": string }
+ */
 public_users.post("/register", (req, res) => {
   const { username, password } = req.body || {};
 
@@ -25,7 +42,7 @@ public_users.post("/register", (req, res) => {
     return res.status(400).json({ message: 'Username and password are required' });
   }
 
-  // store users in-memory using auth_users.js shared array
+  // Store users in-memory using the shared array exported from auth_users.js
   const existingUser = users.find((u) => u.username === username);
   if (existingUser) {
     if (existingUser.password === password) {
@@ -34,27 +51,29 @@ public_users.post("/register", (req, res) => {
     return res.status(409).json({ message: 'Username already exists with a different password' });
   }
 
-  const newUser = { username, password };
-  users.push(newUser);
+  users.push({ username, password });
 
   return res.status(201).json({ message: 'User registered successfully' });
 });
 
-
-// Get the book list available in the shop (axios + async/await)
+/**
+ * List all available books.
+ *
+ * Uses axios + async/await to retrieve from the internal endpoint.
+ */
 public_users.get('/', async function (req, res) {
   try {
     const data = await fetchViaAxios('/customer/');
     return res.status(200).json(data);
-
   } catch (err) {
     const msg = err?.response?.data?.message || err.message;
     return res.status(500).json({ message: 'Failed to get books', error: String(msg) });
   }
 });
 
-
-// Get book details based on ISBN (axios + async/await)
+/**
+ * Fetch a book by ISBN.
+ */
 public_users.get('/isbn/:isbn', async function (req, res) {
   const isbnParam = req.params.isbn;
   const isbn = Number(isbnParam);
@@ -66,7 +85,6 @@ public_users.get('/isbn/:isbn', async function (req, res) {
   try {
     const data = await fetchViaAxios(`/customer/isbn/${isbn}`);
     return res.status(200).json(data);
-
   } catch (err) {
     if (err?.response?.status === 404) {
       return res.status(404).json({ message: 'Book not found' });
@@ -76,8 +94,9 @@ public_users.get('/isbn/:isbn', async function (req, res) {
   }
 });
 
-
-// Get book details based on author (axios + async/await)
+/**
+ * Fetch books by author.
+ */
 public_users.get('/author/:author', async function (req, res) {
   const authorQuery = req.params.author;
 
@@ -88,7 +107,6 @@ public_users.get('/author/:author', async function (req, res) {
   try {
     const data = await fetchViaAxios(`/customer/author/${encodeURIComponent(authorQuery)}`);
     return res.status(200).json(data);
-
   } catch (err) {
     if (err?.response?.status === 404) {
       return res.status(404).json({ message: 'Book not found' });
@@ -98,8 +116,9 @@ public_users.get('/author/:author', async function (req, res) {
   }
 });
 
-
-// Get all books based on title (axios + async/await)
+/**
+ * Fetch books by title.
+ */
 public_users.get('/title/:title', async function (req, res) {
   const titleQuery = req.params.title;
 
@@ -110,7 +129,6 @@ public_users.get('/title/:title', async function (req, res) {
   try {
     const data = await fetchViaAxios(`/customer/title/${encodeURIComponent(titleQuery)}`);
     return res.status(200).json(data);
-
   } catch (err) {
     if (err?.response?.status === 404) {
       return res.status(404).json({ message: 'Book not found' });
@@ -120,10 +138,9 @@ public_users.get('/title/:title', async function (req, res) {
   }
 });
 
-
-
-
-//  Get book review
+/**
+ * Get all reviews for a specific book (in-memory).
+ */
 public_users.get('/review/:isbn', function (req, res) {
   const isbnParam = req.params.isbn;
   const isbn = Number(isbnParam);
@@ -137,10 +154,10 @@ public_users.get('/review/:isbn', function (req, res) {
     return res.status(404).json({ message: 'Book not found' });
   }
 
-  // reviews are stored directly under the book object in booksdb.js
+  // Reviews are stored directly under the book object in booksdb.js
   return res.status(200).json({ isbn, reviews: book.reviews || {} });
 });
 
-
 module.exports.general = public_users;
+
 
