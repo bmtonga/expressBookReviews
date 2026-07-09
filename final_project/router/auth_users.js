@@ -5,9 +5,14 @@ const regd_users = express.Router();
 
 let users = [];
 
-const isValid = (username)=>{ //returns boolean
-//write code to check is the username is valid
-}
+const isValid = (username) => {
+  if (typeof username !== 'string') return false;
+  const trimmed = username.trim();
+  if (trimmed.length < 3) return false;
+  // allow letters/numbers and a few common username chars
+  return /^[a-zA-Z0-9_\.\-]+$/.test(trimmed);
+};
+
 
 const authenticatedUser = (username, password) => {
   const user = users.find((u) => u.username === username);
@@ -39,7 +44,9 @@ regd_users.post("/login", (req, res) => {
 // Add or modify a book review
 regd_users.put("/auth/review/:isbn", (req, res) => {
   const isbn = Number(req.params.isbn);
-  const { review } = req.query || {};
+  const { review: reviewFromQuery } = req.query || {};
+  const { review: reviewFromBody } = req.body || {};
+  const review = reviewFromQuery ?? reviewFromBody;
 
   if (!Number.isInteger(isbn)) {
     return res.status(400).json({ message: 'Invalid ISBN' });
@@ -48,6 +55,7 @@ regd_users.put("/auth/review/:isbn", (req, res) => {
   if (!review) {
     return res.status(400).json({ message: 'Review is required' });
   }
+
 
   const book = books[isbn];
   if (!book) {
@@ -100,3 +108,4 @@ module.exports.authenticated = regd_users;
 
 module.exports.isValid = isValid;
 module.exports.users = users;
+
