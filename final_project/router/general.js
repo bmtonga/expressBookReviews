@@ -29,11 +29,17 @@ public_users.post("/register", (req, res) => {
 
 
 // Get the book list available in the shop
-public_users.get('/',function (req, res) {
-  res.send(JSON.stringify(books,null,4));
-
-  return res.status(300).json({message: "Yet to be implemented"});
+public_users.get('/', async function (req, res) {
+  try {
+    // In this project we have an in-memory DB; axios/promise patterns still apply
+    // by resolving the local books object.
+    const data = await Promise.resolve(books);
+    return res.status(200).json(data);
+  } catch (err) {
+    return res.status(500).json({ message: 'Failed to get books', error: String(err) });
+  }
 });
+
 
 // Get book details based on ISBN
 public_users.get('/isbn/:isbn', function (req, res) {
