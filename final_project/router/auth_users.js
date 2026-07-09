@@ -36,11 +36,38 @@ regd_users.post("/login", (req, res) => {
 });
 
 
-// Add a book review
+// Add or modify a book review
 regd_users.put("/auth/review/:isbn", (req, res) => {
-  //Write your code here
-  return res.status(300).json({message: "Yet to be implemented"});
+  const isbn = Number(req.params.isbn);
+  const { review } = req.query || {};
+
+  if (!Number.isInteger(isbn)) {
+    return res.status(400).json({ message: 'Invalid ISBN' });
+  }
+
+  if (!review) {
+    return res.status(400).json({ message: 'Review is required' });
+  }
+
+  const book = books[isbn];
+  if (!book) {
+    return res.status(404).json({ message: 'Book not found' });
+  }
+
+  // JWT middleware sets req.user
+  const username = req.user && req.user.username;
+  if (!username) {
+    return res.status(403).json({ message: 'Unauthorized' });
+  }
+
+  if (!book.reviews) book.reviews = {};
+
+  // Store by username; re-posting overwrites the existing review from same user
+  book.reviews[username] = review;
+
+  return res.status(200).json({ isbn, author: book.author, title: book.title, reviews: book.reviews });
 });
+
 
 module.exports.authenticated = regd_users;
 module.exports.isValid = isValid;
