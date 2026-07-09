@@ -1,8 +1,21 @@
 const express = require('express');
+const axios = require('axios');
 let books = require("./booksdb.js");
+
 let isValid = require("./auth_users.js").isValid;
 let users = require("./auth_users.js").users;
+
 const public_users = express.Router();
+const BASE_URL = 'http://localhost:6000';
+
+// Helper: use axios against our own already-implemented endpoints.
+// NOTE: these endpoints are mounted on the same Express app and run in-memory.
+async function fetchViaAxios(path) {
+  const axiosRes = await axios.get(`${BASE_URL}${path}`);
+  return axiosRes.data;
+}
+
+
 
 
 public_users.post("/register", (req, res) => {
@@ -28,20 +41,20 @@ public_users.post("/register", (req, res) => {
 });
 
 
-// Get the book list available in the shop
+// Get the book list available in the shop (axios + async/await)
 public_users.get('/', async function (req, res) {
   try {
-    // In this project we have an in-memory DB; axios/promise patterns still apply
-    // by resolving the local books object.
-    const data = await Promise.resolve(books);
+    const data = await fetchViaAxios('/customer/');
     return res.status(200).json(data);
+
   } catch (err) {
-    return res.status(500).json({ message: 'Failed to get books', error: String(err) });
+    const msg = err?.response?.data?.message || err.message;
+    return res.status(500).json({ message: 'Failed to get books', error: String(msg) });
   }
 });
 
 
-// Get book details based on ISBN
+// Get book details based on ISBN (axios + async/await)
 public_users.get('/isbn/:isbn', async function (req, res) {
   const isbnParam = req.params.isbn;
   const isbn = Number(isbnParam);
@@ -51,44 +64,42 @@ public_users.get('/isbn/:isbn', async function (req, res) {
   }
 
   try {
-    const data = await Promise.resolve(books[isbn]);
+    const data = await fetchViaAxios(`/customer/isbn/${isbn}`);
+    return res.status(200).json(data);
 
-    if (!data) {
+  } catch (err) {
+    if (err?.response?.status === 404) {
       return res.status(404).json({ message: 'Book not found' });
     }
-
-    return res.status(200).json({ isbn, ...data });
-  } catch (err) {
-    return res.status(500).json({ message: 'Failed to get book', error: String(err) });
+    const msg = err?.response?.data?.message || err.message;
+    return res.status(500).json({ message: 'Failed to get book', error: String(msg) });
   }
 });
 
 
-// Get book details based on author
-public_users.get('/author/:author', function (req, res) {
+// Get book details based on author (axios + async/await)
+public_users.get('/author/:author', async function (req, res) {
   const authorQuery = req.params.author;
 
   if (!authorQuery) {
     return res.status(400).json({ message: 'Invalid author' });
   }
 
-  const results = Object.keys(books)
-    .map((k) => Number(k))
-    .filter((isbn) => {
-      const book = books[isbn];
-      return book && String(book.author).toLowerCase() === String(authorQuery).toLowerCase();
-    })
-    .map((isbn) => ({ isbn, ...books[isbn] }));
+  try {
+    const data = await fetchViaAxios(`/customer/author/${encodeURIComponent(authorQuery)}`);
+    return res.status(200).json(data);
 
-  if (results.length === 0) {
-    return res.status(404).json({ message: 'Book not found' });
+  } catch (err) {
+    if (err?.response?.status === 404) {
+      return res.status(404).json({ message: 'Book not found' });
+    }
+    const msg = err?.response?.data?.message || err.message;
+    return res.status(500).json({ message: 'Failed to get books by author', error: String(msg) });
   }
-
-  return res.status(200).json(results);
 });
 
 
-// Get all books based on title
+// Get all books based on title (axios + async/await)
 public_users.get('/title/:title', async function (req, res) {
   const titleQuery = req.params.title;
 
@@ -97,25 +108,18 @@ public_users.get('/title/:title', async function (req, res) {
   }
 
   try {
-    const results = await Promise.resolve(
-      Object.keys(books)
-        .map((k) => Number(k))
-        .filter((isbn) => {
-          const book = books[isbn];
-          return book && String(book.title).toLowerCase() === String(titleQuery).toLowerCase();
-        })
-        .map((isbn) => ({ isbn, ...books[isbn] }))
-    );
+    const data = await fetchViaAxios(`/customer/title/${encodeURIComponent(titleQuery)}`);
+    return res.status(200).json(data);
 
-    if (results.length === 0) {
+  } catch (err) {
+    if (err?.response?.status === 404) {
       return res.status(404).json({ message: 'Book not found' });
     }
-
-    return res.status(200).json(results);
-  } catch (err) {
-    return res.status(500).json({ message: 'Failed to get books by title', error: String(err) });
+    const msg = err?.response?.data?.message || err.message;
+    return res.status(500).json({ message: 'Failed to get books by title', error: String(msg) });
   }
 });
+
 
 
 
@@ -139,3 +143,4 @@ public_users.get('/review/:isbn', function (req, res) {
 
 
 module.exports.general = public_users;
+
