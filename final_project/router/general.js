@@ -89,27 +89,34 @@ public_users.get('/author/:author', function (req, res) {
 
 
 // Get all books based on title
-public_users.get('/title/:title', function (req, res) {
+public_users.get('/title/:title', async function (req, res) {
   const titleQuery = req.params.title;
 
   if (!titleQuery) {
     return res.status(400).json({ message: 'Invalid title' });
   }
 
-  const results = Object.keys(books)
-    .map((k) => Number(k))
-    .filter((isbn) => {
-      const book = books[isbn];
-      return book && String(book.title).toLowerCase() === String(titleQuery).toLowerCase();
-    })
-    .map((isbn) => ({ isbn, ...books[isbn] }));
+  try {
+    const results = await Promise.resolve(
+      Object.keys(books)
+        .map((k) => Number(k))
+        .filter((isbn) => {
+          const book = books[isbn];
+          return book && String(book.title).toLowerCase() === String(titleQuery).toLowerCase();
+        })
+        .map((isbn) => ({ isbn, ...books[isbn] }))
+    );
 
-  if (results.length === 0) {
-    return res.status(404).json({ message: 'Book not found' });
+    if (results.length === 0) {
+      return res.status(404).json({ message: 'Book not found' });
+    }
+
+    return res.status(200).json(results);
+  } catch (err) {
+    return res.status(500).json({ message: 'Failed to get books by title', error: String(err) });
   }
-
-  return res.status(200).json(results);
 });
+
 
 
 //  Get book review
